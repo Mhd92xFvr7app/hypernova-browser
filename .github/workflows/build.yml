@@ -69,12 +69,13 @@ jobs:
         run: |
           cd app/platforms/android/app/build/outputs/apk/release/
           keytool -genkey -v -keystore release.keystore -alias viora -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Viora, OU=Dev, O=Viora, L=Cairo, S=Cairo, C=EG" \
+            -dname "CN=Viora, OU=Dev, O=Viora, L=Cairo, ST=Cairo, C=EG" \
             -storepass viora123 -keypass viora123
           jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
             -keystore release.keystore -storepass viora123 -keypass viora123 \
             app-release-unsigned.apk viora
-          zipalign -v 4 app-release-unsigned.apk HyperNova.apk
+          ZIPALIGN=$(find /usr/local/lib/android/sdk -name "zipalign" | head -1)
+          $ZIPALIGN -v 4 app-release-unsigned.apk HyperNova.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
