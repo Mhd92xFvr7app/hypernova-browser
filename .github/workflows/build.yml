@@ -1,0 +1,227 @@
+name: Build HyperNova APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create Android Project
+        run: |
+          mkdir -p HyperNova/app/src/main/assets
+          mkdir -p HyperNova/app/src/main/res/mipmap-xxxhdpi
+          mkdir -p HyperNova/app/src/main/res/values
+          mkdir -p HyperNova/.gradle
+
+          # Copy HTML file
+          cp index-2.html HyperNova/app/src/main/assets/index.html
+
+          # Copy logo
+          cp logo_512x512.png HyperNova/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          cp logo_512x512.png HyperNova/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
+
+      - name: Write Android files
+        run: |
+
+          # settings.gradle
+          cat > HyperNova/settings.gradle << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "HyperNova"
+          include ':app'
+          EOF
+
+          # build.gradle (root)
+          cat > HyperNova/build.gradle << 'EOF'
+          plugins {
+              id 'com.android.application' version '8.2.0' apply false
+          }
+          EOF
+
+          # app/build.gradle
+          cat > HyperNova/app/build.gradle << 'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.hypernova.browser'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.hypernova.browser"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          dependencies {}
+          EOF
+
+          # gradle wrapper
+          mkdir -p HyperNova/gradle/wrapper
+          cat > HyperNova/gradle/wrapper/gradle-wrapper.properties << 'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+          # AndroidManifest.xml
+          cat > HyperNova/app/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <application
+                  android:label="HyperNova"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher_round"
+                  android:usesCleartextTraffic="true"
+                  android:hardwareAccelerated="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize|keyboardHidden"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # strings.xml
+          cat > HyperNova/app/src/main/res/values/strings.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">HyperNova</string>
+          </resources>
+          EOF
+
+          # MainActivity.java
+          mkdir -p HyperNova/app/src/main/java/com/hypernova/browser
+          cat > HyperNova/app/src/main/java/com/hypernova/browser/MainActivity.java << 'EOF'
+          package com.hypernova.browser;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import android.webkit.WebChromeClient;
+          import android.view.Window;
+          import android.view.WindowManager;
+
+          public class MainActivity extends Activity {
+              private WebView webView;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  requestWindowFeature(Window.FEATURE_NO_TITLE);
+                  getWindow().setFlags(
+                      WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                      WindowManager.LayoutParams.FLAG_FULLSCREEN
+                  );
+
+                  webView = new WebView(this);
+                  setContentView(webView);
+
+                  WebSettings settings = webView.getSettings();
+                  settings.setJavaScriptEnabled(true);
+                  settings.setDomStorageEnabled(true);
+                  settings.setAllowFileAccessFromFileURLs(true);
+                  settings.setAllowUniversalAccessFromFileURLs(true);
+                  settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+                  settings.setLoadWithOverviewMode(true);
+                  settings.setUseWideViewPort(true);
+                  settings.setBuiltInZoomControls(false);
+                  settings.setSupportZoom(false);
+                  settings.setMediaPlaybackRequiresUserGesture(false);
+                  settings.setUserAgentString(
+                      "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 " +
+                      "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                  );
+
+                  webView.setWebViewClient(new WebViewClient() {
+                      @Override
+                      public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                          view.loadUrl(url);
+                          return true;
+                      }
+                  });
+                  webView.setWebChromeClient(new WebChromeClient());
+
+                  webView.loadUrl("file:///android_asset/index.html");
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (webView.canGoBack()) {
+                      webView.goBack();
+                  } else {
+                      super.onBackPressed();
+                  }
+              }
+          }
+          EOF
+
+      - name: Download Gradle wrapper jar
+        run: |
+          cd HyperNova
+          wget -q https://github.com/gradle/gradle/raw/v8.4.0/gradle/wrapper/gradle-wrapper.jar \
+            -O gradle/wrapper/gradle-wrapper.jar || \
+          curl -sL https://github.com/gradle/gradle/raw/v8.4.0/gradle/wrapper/gradle-wrapper.jar \
+            -o gradle/wrapper/gradle-wrapper.jar
+
+      - name: Build Debug APK
+        run: |
+          cd HyperNova
+          chmod +x gradlew 2>/dev/null || true
+          gradle wrapper
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HyperNova-APK
+          path: HyperNova/app/build/outputs/apk/debug/app-debug.apk
