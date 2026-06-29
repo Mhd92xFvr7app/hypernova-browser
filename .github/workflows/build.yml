@@ -28,17 +28,13 @@ jobs:
           mkdir -p HyperNova/app/src/main/res/values
           mkdir -p HyperNova/.gradle
 
-          # Copy HTML file
           cp index-2.html HyperNova/app/src/main/assets/index.html
-
-          # Copy logo
           cp logo_512x512.png HyperNova/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
           cp logo_512x512.png HyperNova/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
 
       - name: Write Android files
         run: |
 
-          # settings.gradle
           cat > HyperNova/settings.gradle << 'EOF'
           pluginManagement {
               repositories {
@@ -58,14 +54,12 @@ jobs:
           include ':app'
           EOF
 
-          # build.gradle (root)
           cat > HyperNova/build.gradle << 'EOF'
           plugins {
               id 'com.android.application' version '8.2.0' apply false
           }
           EOF
 
-          # app/build.gradle
           cat > HyperNova/app/build.gradle << 'EOF'
           plugins {
               id 'com.android.application'
@@ -93,7 +87,6 @@ jobs:
           dependencies {}
           EOF
 
-          # gradle wrapper
           mkdir -p HyperNova/gradle/wrapper
           cat > HyperNova/gradle/wrapper/gradle-wrapper.properties << 'EOF'
           distributionBase=GRADLE_USER_HOME
@@ -103,17 +96,18 @@ jobs:
           zipStorePath=wrapper/dists
           EOF
 
-          # AndroidManifest.xml
           cat > HyperNova/app/src/main/AndroidManifest.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
               <application
                   android:label="HyperNova"
                   android:icon="@mipmap/ic_launcher"
                   android:roundIcon="@mipmap/ic_launcher_round"
                   android:usesCleartextTraffic="true"
-                  android:hardwareAccelerated="true">
+                  android:hardwareAccelerated="true"
+                  android:networkSecurityConfig="@xml/network_security_config">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -128,7 +122,18 @@ jobs:
           </manifest>
           EOF
 
-          # strings.xml
+          mkdir -p HyperNova/app/src/main/res/xml
+          cat > HyperNova/app/src/main/res/xml/network_security_config.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <network-security-config>
+              <base-config cleartextTrafficPermitted="true">
+                  <trust-anchors>
+                      <certificates src="system"/>
+                  </trust-anchors>
+              </base-config>
+          </network-security-config>
+          EOF
+
           cat > HyperNova/app/src/main/res/values/strings.xml << 'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -136,7 +141,6 @@ jobs:
           </resources>
           EOF
 
-          # MainActivity.java
           mkdir -p HyperNova/app/src/main/java/com/hypernova/browser
           cat > HyperNova/app/src/main/java/com/hypernova/browser/MainActivity.java << 'EOF'
           package com.hypernova.browser;
@@ -169,17 +173,23 @@ jobs:
                   WebSettings settings = webView.getSettings();
                   settings.setJavaScriptEnabled(true);
                   settings.setDomStorageEnabled(true);
+                  settings.setDatabaseEnabled(true);
+                  settings.setAllowFileAccess(true);
+                  settings.setAllowContentAccess(true);
                   settings.setAllowFileAccessFromFileURLs(true);
                   settings.setAllowUniversalAccessFromFileURLs(true);
                   settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
                   settings.setLoadWithOverviewMode(true);
                   settings.setUseWideViewPort(true);
                   settings.setBuiltInZoomControls(false);
-                  settings.setSupportZoom(false);
+                  settings.setSupportZoom(true);
                   settings.setMediaPlaybackRequiresUserGesture(false);
+                  settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+                  settings.setSaveFormData(false);
                   settings.setUserAgentString(
-                      "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 " +
-                      "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                      "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro Build/UQ1A.240105.004) " +
+                      "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                      "Chrome/124.0.6367.82 Mobile Safari/537.36"
                   );
 
                   webView.setWebViewClient(new WebViewClient() {
@@ -190,7 +200,6 @@ jobs:
                       }
                   });
                   webView.setWebChromeClient(new WebChromeClient());
-
                   webView.loadUrl("file:///android_asset/index.html");
               }
 
@@ -216,7 +225,6 @@ jobs:
       - name: Build Debug APK
         run: |
           cd HyperNova
-          chmod +x gradlew 2>/dev/null || true
           gradle wrapper
           ./gradlew assembleDebug --no-daemon
 
